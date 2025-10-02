@@ -2,13 +2,13 @@
   "version": 2,
   "functions": {
     "api/webhook.py": {
-      "runtime": "@vercel/python"
+      "runtime": "python3.12"
     },
     "api/setup.py": {
-      "runtime": "@vercel/python"
+      "runtime": "python3.12"
     },
     "api/index.py": {
-      "runtime": "@vercel/python"
+      "runtime": "python3.12"
     }
   },
   "routes": [
