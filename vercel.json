@@ -30,9 +30,9 @@
     }
   ],
   "env": {
-    "TELEGRAM_BOT_TOKEN": "@telegram_bot_token",
-    "CRYPTORANK_API_KEY": "@cryptorank_api_key",
-    "MODEL_API_KEY": "@model_api_key"
+    "TELEGRAM_BOT_TOKEN": "@telegram-bot-token",
+    "CRYPTORANK_API_KEY": "@cryptorank-api-key",
+    "MODEL_API_KEY": "@model-api-key"
   },
   "build": {
     "env": {
