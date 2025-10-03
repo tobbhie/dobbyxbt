@@ -368,7 +368,21 @@ class TelegramWebhook:
             if not update or not update.message:
                 logger.error("[TELEGRAM] Invalid update or message in trending command")
                 return
+            
+            # Show instant feedback
+            status_msg = await update.message.reply_text("⏳ Fetching trending data...")
+            
+            # Create task to prevent blocking
+            asyncio.create_task(self._handle_trending_command_async(update, context, status_msg))
                 
+        except Exception as e:
+            logger.error(f"[TELEGRAM] Error in trending command: {str(e)}")
+            if update and update.message:
+                await update.message.reply_text("❌ Error fetching trending data. Please try again.")
+
+    async def _handle_trending_command_async(self, update: Update, context: ContextTypes.DEFAULT_TYPE, status_msg):
+        """Handle trending command asynchronously."""
+        try:
             trending_data = await self.get_trending_crypto()
             if trending_data:
                 response = "🔥 **Top Trending Cryptocurrencies:**\n\n"
@@ -378,13 +392,13 @@ class TelegramWebhook:
                     response += f"{i}. **{crypto['name']} ({crypto['symbol']})**\n"
                     response += f"   💵 ${crypto['price']:,.2f} {change_emoji} {crypto['change_24h']:+.2f}%\n\n"
                 
-                await update.message.reply_text(response, parse_mode='Markdown')
+                await status_msg.edit_text(response, parse_mode='Markdown')
             else:
-                await update.message.reply_text("❌ Could not fetch trending data. Please set your CryptoRank API key using the CRYPTORANK_API_KEY environment variable.")
+                await status_msg.edit_text("❌ Could not fetch trending data. Please set your CryptoRank API key using the CRYPTORANK_API_KEY environment variable.")
                 
         except Exception as e:
-            logger.error(f"[TELEGRAM] Error in trending command: {str(e)}")
-            await update.message.reply_text("❌ Error fetching trending data. Please try again.")
+            logger.error(f"[TELEGRAM] Error in trending command async: {str(e)}")
+            await status_msg.edit_text("❌ Error fetching trending data. Please try again.")
 
     async def funds_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /funds command."""
@@ -392,7 +406,21 @@ class TelegramWebhook:
             if not update or not update.message:
                 logger.error("[TELEGRAM] Invalid update or message in funds command")
                 return
+            
+            # Show instant feedback
+            status_msg = await update.message.reply_text("⏳ Fetching funds data...")
+            
+            # Create task to prevent blocking
+            asyncio.create_task(self._handle_funds_command_async(update, context, status_msg))
                 
+        except Exception as e:
+            logger.error(f"[TELEGRAM] Error in funds command: {str(e)}")
+            if update and update.message:
+                await update.message.reply_text("❌ Error fetching funds data. Please try again.")
+
+    async def _handle_funds_command_async(self, update: Update, context: ContextTypes.DEFAULT_TYPE, status_msg):
+        """Handle funds command asynchronously."""
+        try:
             funds_data = await self.get_funds_data()
             if funds_data:
                 response = "🏦 **Top Crypto Investment Funds:**\n\n"
@@ -402,14 +430,13 @@ class TelegramWebhook:
                     response += f"   🏢 Type: {fund['type']}\n"
                     response += f"   ⭐ Tier: {fund['tier']}\n\n"
                 
-                await update.message.reply_text(response, parse_mode='Markdown')
+                await status_msg.edit_text(response, parse_mode='Markdown')
             else:
-                await update.message.reply_text("❌ Could not fetch funds data. Please set your CryptoRank API key using the CRYPTORANK_API_KEY environment variable.")
+                await status_msg.edit_text("❌ Could not fetch funds data. Please set your CryptoRank API key using the CRYPTORANK_API_KEY environment variable.")
                 
         except Exception as e:
-            logger.error(f"[TELEGRAM] Error in funds command: {str(e)}")
-            if update and update.message:
-                await update.message.reply_text("❌ Error fetching funds data. Please try again.")
+            logger.error(f"[TELEGRAM] Error in funds command async: {str(e)}")
+            await status_msg.edit_text("❌ Error fetching funds data. Please try again.")
 
     async def drophunting_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /drophunting command for airdrop activities."""
@@ -417,7 +444,21 @@ class TelegramWebhook:
             if not update or not update.message:
                 logger.error("[TELEGRAM] Invalid update or message in drophunting command")
                 return
+            
+            # Show instant feedback
+            status_msg = await update.message.reply_text("⏳ Fetching drophunting data...")
+            
+            # Create task to prevent blocking
+            asyncio.create_task(self._handle_drophunting_command_async(update, context, status_msg))
                 
+        except Exception as e:
+            logger.error(f"[TELEGRAM] Error in drophunting command: {str(e)}")
+            if update and update.message:
+                await update.message.reply_text("❌ Error fetching drophunting data. Please try again.")
+
+    async def _handle_drophunting_command_async(self, update: Update, context: ContextTypes.DEFAULT_TYPE, status_msg):
+        """Handle drophunting command asynchronously."""
+        try:
             args = context.args
             status = args[0] if args else None
             
@@ -443,13 +484,13 @@ class TelegramWebhook:
                             response += f"   💰 Raised: ${activity['total_raised']:,.0f}\n"
                         response += f"   📱 X Score: {activity.get('x_score', 'N/A')}\n\n"
                 
-                await update.message.reply_text(response, parse_mode='Markdown')
+                await status_msg.edit_text(response, parse_mode='Markdown')
             else:
-                await update.message.reply_text("❌ Could not fetch drophunting data. Please set your CryptoRank API key using the CRYPTORANK_API_KEY environment variable.")
+                await status_msg.edit_text("❌ Could not fetch drophunting data. Please set your CryptoRank API key using the CRYPTORANK_API_KEY environment variable.")
                 
         except Exception as e:
-            logger.error(f"[TELEGRAM] Error in drophunting command: {str(e)}")
-            await update.message.reply_text("❌ Error fetching drophunting data. Please try again.")
+            logger.error(f"[TELEGRAM] Error in drophunting command async: {str(e)}")
+            await status_msg.edit_text("❌ Error fetching drophunting data. Please try again.")
 
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle button callbacks."""
@@ -470,14 +511,106 @@ class TelegramWebhook:
                     parse_mode='Markdown'
                 )
             elif query.data == "trending_menu":
-                await self.trending_command(update, context)
+                # Create task to prevent blocking
+                task = asyncio.create_task(self._handle_trending_async(update, context, query))
+                # Don't await to prevent blocking, but ensure task is tracked
+                task.add_done_callback(lambda t: logger.info("[TELEGRAM] Trending task completed"))
             elif query.data == "funds_menu":
-                await self.funds_command(update, context)
+                # Create task to prevent blocking
+                task = asyncio.create_task(self._handle_funds_async(update, context, query))
+                task.add_done_callback(lambda t: logger.info("[TELEGRAM] Funds task completed"))
             elif query.data == "drophunting_menu":
-                await self.drophunting_command(update, context)
+                # Create task to prevent blocking
+                task = asyncio.create_task(self._handle_drophunting_async(update, context, query))
+                task.add_done_callback(lambda t: logger.info("[TELEGRAM] Drophunting task completed"))
                 
         except Exception as e:
             logger.error(f"[TELEGRAM] Error in button callback: {str(e)}")
+
+    async def _handle_trending_async(self, update: Update, context: ContextTypes.DEFAULT_TYPE, query):
+        """Handle trending button press asynchronously."""
+        try:
+            # Show instant feedback
+            await query.edit_message_text("⏳ Fetching trending data...")
+            
+            # Fetch data
+            trending_data = await self.get_trending_crypto()
+            
+            if trending_data:
+                response = "🔥 **Top Trending Cryptocurrencies:**\n\n"
+                for i, crypto in enumerate(trending_data[:10], 1):
+                    change_emoji = "📈" if crypto['change_24h'] >= 0 else "📉"
+                    response += f"{i}. **{crypto['name']} ({crypto['symbol']})**\n"
+                    response += f"   💵 ${crypto['price']:,.2f} {change_emoji} {crypto['change_24h']:+.2f}%\n\n"
+                
+                await query.edit_message_text(response, parse_mode='Markdown')
+            else:
+                await query.edit_message_text("❌ Could not fetch trending data. Please set your CryptoRank API key using the CRYPTORANK_API_KEY environment variable.")
+                
+        except Exception as e:
+            logger.error(f"[TELEGRAM] Error in trending async: {str(e)}")
+            await query.edit_message_text("❌ Error fetching trending data. Please try again.")
+
+    async def _handle_funds_async(self, update: Update, context: ContextTypes.DEFAULT_TYPE, query):
+        """Handle funds button press asynchronously."""
+        try:
+            # Show instant feedback
+            await query.edit_message_text("⏳ Fetching funds data...")
+            
+            # Fetch data
+            funds_data = await self.get_funds_data()
+            
+            if funds_data:
+                response = "🏦 **Top Crypto Investment Funds:**\n\n"
+                for i, fund in enumerate(funds_data[:10], 1):
+                    response += f"{i}. **{fund['name']}**\n"
+                    response += f"   🏢 Type: {fund['type']}\n"
+                    response += f"   ⭐ Tier: {fund['tier']}\n\n"
+                
+                await query.edit_message_text(response, parse_mode='Markdown')
+            else:
+                await query.edit_message_text("❌ Could not fetch funds data. Please set your CryptoRank API key using the CRYPTORANK_API_KEY environment variable.")
+                
+        except Exception as e:
+            logger.error(f"[TELEGRAM] Error in funds async: {str(e)}")
+            await query.edit_message_text("❌ Error fetching funds data. Please try again.")
+
+    async def _handle_drophunting_async(self, update: Update, context: ContextTypes.DEFAULT_TYPE, query):
+        """Handle drophunting button press asynchronously."""
+        try:
+            # Show instant feedback
+            await query.edit_message_text("⏳ Fetching drophunting data...")
+            
+            # Fetch data
+            drophunting_data = await self.get_drophunting_data()
+            
+            if drophunting_data:
+                # Check if it's the cheeky error message
+                if drophunting_data[0].get('error_message'):
+                    response = f"🎯 **Drophunting Activities:**\n\n"
+                    response += f"💸 **{drophunting_data[0]['name']}**\n"
+                    response += f"   🎁 Reward: {drophunting_data[0]['reward_type']}\n"
+                    response += f"   📊 Status: {drophunting_data[0]['status']}\n"
+                    response += f"   📱 X Score: {drophunting_data[0]['x_score']}\n\n"
+                    response += f"**{drophunting_data[0]['error_message']}**\n\n"
+                    response += f"💡 *This endpoint requires a paid CryptoRank API subscription.*"
+                else:
+                    response = "🎯 **Drophunting Activities:**\n\n"
+                    for i, activity in enumerate(drophunting_data[:10], 1):
+                        response += f"{i}. **{activity['name']}**\n"
+                        response += f"   🎁 Reward: {activity['reward_type']}\n"
+                        response += f"   📊 Status: {activity['status']}\n"
+                        if activity.get('total_raised'):
+                            response += f"   💰 Raised: ${activity['total_raised']:,.0f}\n"
+                        response += f"   📱 X Score: {activity.get('x_score', 'N/A')}\n\n"
+                
+                await query.edit_message_text(response, parse_mode='Markdown')
+            else:
+                await query.edit_message_text("❌ Could not fetch drophunting data. Please set your CryptoRank API key using the CRYPTORANK_API_KEY environment variable.")
+                
+        except Exception as e:
+            logger.error(f"[TELEGRAM] Error in drophunting async: {str(e)}")
+            await query.edit_message_text("❌ Error fetching drophunting data. Please try again.")
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle natural language messages."""

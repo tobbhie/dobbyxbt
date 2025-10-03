@@ -72,49 +72,24 @@ def webhook():
         update_data = request.get_json()
         
         if update_data:
-            # Process the update using a completely isolated approach
+            # Process the update using asyncio.create_task approach
             try:
                 import asyncio
                 import concurrent.futures
-                import threading
                 
                 def run_webhook_update():
-                    """Run webhook update in completely isolated environment"""
-                    # Create a new event loop in a new thread
-                    def run_in_thread():
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                        try:
-                            return loop.run_until_complete(bot.process_webhook_update(update_data))
-                        finally:
-                            loop.close()
-                    
-                    # Run in a separate thread with its own event loop
-                    result = None
-                    exception = None
-                    
-                    def target():
-                        nonlocal result, exception
-                        try:
-                            result = run_in_thread()
-                        except Exception as e:
-                            exception = e
-                    
-                    thread = threading.Thread(target=target)
-                    thread.start()
-                    thread.join(timeout=30)
-                    
-                    if thread.is_alive():
-                        logger.error("Webhook processing timed out")
-                        return False
-                    
-                    if exception:
-                        raise exception
-                    
-                    return result
+                    """Run webhook update in isolated event loop"""
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        return loop.run_until_complete(bot.process_webhook_update(update_data))
+                    finally:
+                        loop.close()
                 
-                # Execute the webhook processing
-                result = run_webhook_update()
+                # Run in thread pool to avoid blocking Flask
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(run_webhook_update)
+                    result = future.result(timeout=30)
                 
                 if result:
                     return jsonify({'status': 'ok'})
