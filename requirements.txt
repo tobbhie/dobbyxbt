@@ -2,6 +2,9 @@
 python-telegram-bot==21.0.1
 httpx==0.28.1
 
+# Flask web server for Render
+Flask==3.0.0
+
 # CryptoRank API dependencies  
 aiohttp==3.11.12
 requests==2.32.3

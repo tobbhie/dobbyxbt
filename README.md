@@ -140,8 +140,8 @@ python3 -m src.agent.agent_tools.telegram
 ```
 Expected output:
 ```
-[TELEGRAM] Initializing Crypto Telegram bot...
-[TELEGRAM] Starting Crypto Telegram bot...
+[TELEGRAM] Initializing DobbyXBT Bot...
+[TELEGRAM] Starting DobbyXBT Bot...
 [TELEGRAM] Bot is now running! Press Ctrl+C to stop.
 ```
 
@@ -152,19 +152,20 @@ python3 -m src.agent.agent_tools.telegram
 ```
 Expected output:
 ```
-[TELEGRAM] Initializing Crypto Telegram bot...
+[TELEGRAM] Initializing DobbyXBT Bot...
 [TELEGRAM] CryptoRank API key loaded from environment variable.
 [TELEGRAM] AI model initialized successfully.
-[TELEGRAM] Starting Crypto Telegram bot...
+[TELEGRAM] Starting DobbyXBT Bot...
 [TELEGRAM] Bot is now running! Press Ctrl+C to stop.
 ```
 
-### Vercel Deployment
-The bot is also configured for serverless deployment on Vercel:
-```bash
-vercel --prod
-```
-After deployment, visit `https://your-app.vercel.app/api/setup?action=set` to configure the webhook.
+### Render Deployment
+The bot is configured for deployment on Render:
+1. Connect your GitHub repository to Render
+2. Set environment variables in Render dashboard
+3. Deploy and visit `https://your-app.onrender.com/set_webhook` to configure the webhook
+
+See [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) for detailed deployment instructions.
 
 
 
@@ -213,7 +214,7 @@ For example, consider the telegram tool:
 
 ## DobbyXBT Telegram Bot 🤖
 
-The current implementation features a fully functional cryptocurrency Telegram bot with the following capabilities:
+The current implementation features a fully functional DobbyXBT Telegram bot with the following capabilities:
 
 ### Bot Commands
 - `/start` - Welcome message with interactive menu
@@ -232,6 +233,6 @@ The bot understands natural language queries like:
 
 ### Deployment Options
 - **Local Development**: Run with `python3 -m src.agent.agent_tools.telegram`
-- **Vercel Production**: Deploy as serverless webhook with `vercel --prod`
+- **Render Production**: Deploy as webhook service on Render
 
 Created by [pipsandbills](https://x.com/pipsandbills)

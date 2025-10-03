@@ -13,7 +13,7 @@ logging.basicConfig(format="%(levelname)s: %(message)s")
 
 class Telegram:
     def __init__(self, token, model=None):
-        logger.info("[TELEGRAM] Initializing Crypto Telegram bot...")
+        logger.info("[TELEGRAM] Initializing DobbyXBT Bot...")
         self.token = token
         self.model = model
         self.config = TelegramConfig()
@@ -82,7 +82,7 @@ class Telegram:
 
     def run(self):
         """Run the Telegram bot."""
-        logger.info("[TELEGRAM] Starting Crypto Telegram bot...")
+        logger.info("[TELEGRAM] Starting DobbyXBT Bot...")
         
         # Initialize handlers
         self._initialize_handlers_only()
@@ -364,7 +364,7 @@ class Telegram:
             if self.model:
                 # Create a comprehensive prompt for the AI model
                 ai_prompt = f"""
-You are an advanced cryptocurrency assistant bot with access to real-time crypto data via CryptoRank API. 
+You are DobbyXBT, an advanced cryptocurrency assistant bot with access to real-time crypto data via CryptoRank API. 
 
 User message: "{user_message}"
 

@@ -36,11 +36,11 @@ class TelegramConfig:
         self.LOG_USER_MESSAGES = False  
         
         # Bot personality settings
-        self.BOT_NAME = "DobbyXBT Assistant"
+        self.BOT_NAME = "DobbyXBT Bot"
         self.BOT_PERSONALITY = "crypto-savvy and helpful"
         
         # Rate limiting (messages per minute per user)
-        self.RATE_LIMIT_PER_USER = 20  # Increased for crypto bot
+        self.RATE_LIMIT_PER_USER = 20  # Increased for DobbyXBT Bot
         self.RATE_LIMIT_WINDOW = 60  # seconds
         
         # Crypto-specific emojis

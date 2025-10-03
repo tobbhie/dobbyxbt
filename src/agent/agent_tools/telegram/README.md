@@ -1,6 +1,6 @@
 # DobbyXBT Telegram Bot
 
-A powerful AI-powered cryptocurrency Telegram bot that provides real-time crypto data, market insights, and intelligent responses using CryptoRank API v2 integration.
+A powerful AI-powered DobbyXBT Telegram bot that provides real-time crypto data, market insights, and intelligent responses using CryptoRank API v2 integration.
 
 ## Features
 
@@ -62,7 +62,7 @@ The `telegram_config.py` file contains crypto-specific configuration options:
 - **CryptoRank API Settings**: Timeout, retries, and caching for API calls
 - **Price Alert Settings**: Thresholds and notification preferences
 - **Trending Settings**: Market cap filters and display limits
-- **Rate Limiting**: Enhanced rate limiting for crypto bot usage
+- **Rate Limiting**: Enhanced rate limiting for DobbyXBT Bot usage
 - **Crypto Emojis**: Customizable emoji mapping for crypto symbols
 
 ## Usage
@@ -83,17 +83,16 @@ cp .env.example .env
 python -m src.agent.agent_tools.telegram
 ```
 
-### Vercel Deployment
+### Render Deployment
 
-The bot is configured for serverless deployment on Vercel:
+The bot is configured for deployment on Render:
 
-```bash
-# Deploy to Vercel
-vercel --prod
+1. **Connect Repository**: Link your GitHub repository to Render
+2. **Set Environment Variables**: Add `TELEGRAM_BOT_TOKEN`, `CRYPTORANK_API_KEY`, and optionally `MODEL_API_KEY`
+3. **Deploy**: Render will automatically build and deploy your bot
+4. **Set Webhook**: Visit `https://your-app.onrender.com/set_webhook` to configure the Telegram webhook
 
-# Set up webhook (visit your deployed URL)
-https://your-app.vercel.app/api/setup?action=set
-```
+See [RENDER_DEPLOYMENT.md](../../../RENDER_DEPLOYMENT.md) for detailed deployment instructions.
 
 ## Bot Commands
 
@@ -166,15 +165,15 @@ Users can interact with the bot using natural language:
 - Requires continuous server uptime
 
 ### Production Mode (Webhook)
-- Serverless webhook architecture for Vercel
+- Webhook architecture for Render deployment
 - Event-driven, cost-effective scaling
 - Self-configuring webhook management
 - Production-ready error handling
 
 ### Webhook Management
-- **Set Webhook**: `/api/setup?action=set`
-- **Check Status**: `/api/setup?action=info`
-- **Remove Webhook**: `/api/setup?action=remove`
+- **Set Webhook**: `/set_webhook`
+- **Check Status**: `/webhook_info`
+- **Health Check**: `/`
 
 ## Error Handling
 
