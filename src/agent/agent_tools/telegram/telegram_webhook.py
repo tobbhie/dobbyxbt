@@ -571,6 +571,11 @@ class TelegramWebhook:
     async def process_webhook_update(self, update_data: dict):
         """Process webhook update for Render deployment."""
         try:
+            # Ensure application is initialized
+            if not self.application._initialized:
+                await self.application.initialize()
+                logger.info("[TELEGRAM] Application initialized for webhook processing")
+            
             # Create Update object from webhook data
             update = Update.de_json(update_data, self.application.bot)
             
