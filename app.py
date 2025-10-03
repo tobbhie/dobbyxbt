@@ -72,26 +72,24 @@ def webhook():
         update_data = request.get_json()
         
         if update_data:
-            # Process the update asynchronously
+            # Process the update asynchronously using a thread pool
             import asyncio
+            import concurrent.futures
+            import threading
             
-            # Check if there's already an event loop running
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # If loop is running, we need to run in a new thread
-                    import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(asyncio.run, bot.process_webhook_update(update_data))
-                        result = future.result()
-                else:
-                    result = loop.run_until_complete(bot.process_webhook_update(update_data))
-            except RuntimeError:
-                # No event loop, create a new one
+            def run_async_update():
+                """Run the async function in a new event loop"""
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                result = loop.run_until_complete(bot.process_webhook_update(update_data))
-                loop.close()
+                try:
+                    return loop.run_until_complete(bot.process_webhook_update(update_data))
+                finally:
+                    loop.close()
+            
+            # Run in a separate thread to avoid event loop conflicts
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(run_async_update)
+                result = future.result(timeout=30)  # 30 second timeout
             
             if result:
                 return jsonify({'status': 'ok'})
