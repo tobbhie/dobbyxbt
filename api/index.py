@@ -20,7 +20,7 @@ class handler(BaseHTTPRequestHandler):
             api_configured = bool(os.getenv("CRYPTORANK_API_KEY"))
             
             response_data = {
-                "bot_name": "CryptoRank Telegram Bot",
+                "bot_name": "DobbyXBT Telegram Bot",
                 "status": "deployed" if bot_configured else "needs_configuration",
                 "version": "1.0.0",
                 "features": [
