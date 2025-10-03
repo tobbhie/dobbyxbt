@@ -332,6 +332,10 @@ class TelegramWebhook:
     async def price_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /price command."""
         try:
+            if not update or not update.message:
+                logger.error("[TELEGRAM] Invalid update or message in price command")
+                return
+                
             args = context.args
             if not args:
                 await update.message.reply_text("❌ Please provide a cryptocurrency symbol. Example: /price BTC")
@@ -361,6 +365,10 @@ class TelegramWebhook:
     async def trending_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /trending command."""
         try:
+            if not update or not update.message:
+                logger.error("[TELEGRAM] Invalid update or message in trending command")
+                return
+                
             trending_data = await self.get_trending_crypto()
             if trending_data:
                 response = "🔥 **Top Trending Cryptocurrencies:**\n\n"
@@ -381,6 +389,10 @@ class TelegramWebhook:
     async def funds_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /funds command."""
         try:
+            if not update or not update.message:
+                logger.error("[TELEGRAM] Invalid update or message in funds command")
+                return
+                
             funds_data = await self.get_funds_data()
             if funds_data:
                 response = "🏦 **Top Crypto Investment Funds:**\n\n"
@@ -396,11 +408,16 @@ class TelegramWebhook:
                 
         except Exception as e:
             logger.error(f"[TELEGRAM] Error in funds command: {str(e)}")
-            await update.message.reply_text("❌ Error fetching funds data. Please try again.")
+            if update and update.message:
+                await update.message.reply_text("❌ Error fetching funds data. Please try again.")
 
     async def drophunting_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /drophunting command for airdrop activities."""
         try:
+            if not update or not update.message:
+                logger.error("[TELEGRAM] Invalid update or message in drophunting command")
+                return
+                
             args = context.args
             status = args[0] if args else None
             
