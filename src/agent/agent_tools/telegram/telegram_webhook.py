@@ -85,7 +85,8 @@ class TelegramWebhook:
                 logger.error("[TELEGRAM] No CryptoRank API key provided. Please set CRYPTORANK_API_KEY environment variable or use set_api_key() method.")
                 return []
             
-            async with aiohttp.ClientSession() as session:
+            timeout = aiohttp.ClientTimeout(total=30)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
                 url = f"{self.cryptorank_base_url}/currencies"
                 headers = {
                     'X-Api-Key': self.cryptorank_api_key
@@ -93,36 +94,44 @@ class TelegramWebhook:
                 params = {
                     'limit': 20,
                     'sortBy': 'marketCap',
-                    'sortDirection': 'DESC',
-                    'include': 'price,change24h,marketCap'
+                    'sortDirection': 'DESC'
                 }
                 if symbol:
                     params['symbol'] = symbol.upper()
                 
                 async with session.get(url, headers=headers, params=params) as response:
                     if response.status == 200:
-                        data = await response.json()
-                        prices = []
-                        for currency in data.get('data', []):
-                            try:
-                                price = float(currency.get('price', 0)) if currency.get('price') else 0
-                                change_24h = float(currency.get('change24h', 0)) if currency.get('change24h') else 0
-                                market_cap = float(currency.get('marketCap', 0)) if currency.get('marketCap') else 0
-                                
-                                prices.append({
-                                    'symbol': currency.get('symbol', 'Unknown'),
-                                    'name': currency.get('name', 'Unknown'),
-                                    'price': price,
-                                    'change_24h': change_24h,
-                                    'market_cap': market_cap,
-                                    'rank': currency.get('rank', 0)
-                                })
-                            except (ValueError, TypeError) as e:
-                                logger.warning(f"[TELEGRAM] Error parsing currency data: {e}")
-                                continue
-                        return prices
+                        try:
+                            data = await response.json()
+                            if not data or 'data' not in data:
+                                logger.warning("[TELEGRAM] No data in API response")
+                                return []
+                            
+                            prices = []
+                            for currency in data.get('data', []):
+                                try:
+                                    price = float(currency.get('price', 0)) if currency.get('price') else 0
+                                    change_24h = float(currency.get('change24h', 0)) if currency.get('change24h') else 0
+                                    market_cap = float(currency.get('marketCap', 0)) if currency.get('marketCap') else 0
+                                    
+                                    prices.append({
+                                        'symbol': currency.get('symbol', 'Unknown'),
+                                        'name': currency.get('name', 'Unknown'),
+                                        'price': price,
+                                        'change_24h': change_24h,
+                                        'market_cap': market_cap,
+                                        'rank': currency.get('rank', 0)
+                                    })
+                                except (ValueError, TypeError) as e:
+                                    logger.warning(f"[TELEGRAM] Error parsing currency data: {e}")
+                                    continue
+                            return prices
+                        except Exception as e:
+                            logger.error(f"[TELEGRAM] Error parsing API response: {e}")
+                            return []
                     else:
-                        logger.error(f"[TELEGRAM] CryptoRank API error: {response.status}")
+                        error_text = await response.text()
+                        logger.error(f"[TELEGRAM] CryptoRank API error: {response.status} - {error_text}")
                         return []
         except Exception as e:
             logger.error(f"[TELEGRAM] Error fetching crypto prices: {str(e)}")
@@ -135,7 +144,8 @@ class TelegramWebhook:
                 logger.error("[TELEGRAM] No CryptoRank API key provided. Please set CRYPTORANK_API_KEY environment variable or use set_api_key() method.")
                 return []
             
-            async with aiohttp.ClientSession() as session:
+            timeout = aiohttp.ClientTimeout(total=30)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
                 url = f"{self.cryptorank_base_url}/currencies"
                 headers = {
                     'X-Api-Key': self.cryptorank_api_key
@@ -143,8 +153,7 @@ class TelegramWebhook:
                 params = {
                     'limit': 20,
                     'sortBy': trend_type,
-                    'sortDirection': 'DESC',
-                    'include': 'price,change24h,marketCap'
+                    'sortDirection': 'DESC'
                 }
                 
                 async with session.get(url, headers=headers, params=params) as response:
@@ -183,7 +192,8 @@ class TelegramWebhook:
                 logger.error("[TELEGRAM] No CryptoRank API key provided. Please set CRYPTORANK_API_KEY environment variable or use set_api_key() method.")
                 return []
             
-            async with aiohttp.ClientSession() as session:
+            timeout = aiohttp.ClientTimeout(total=30)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
                 url = f"{self.cryptorank_base_url}/funds/map"
                 headers = {
                     'X-Api-Key': self.cryptorank_api_key
@@ -214,7 +224,8 @@ class TelegramWebhook:
                 logger.error("[TELEGRAM] No CryptoRank API key provided. Please set CRYPTORANK_API_KEY environment variable or use set_api_key() method.")
                 return []
             
-            async with aiohttp.ClientSession() as session:
+            timeout = aiohttp.ClientTimeout(total=30)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
                 url = f"{self.cryptorank_base_url}/drophunting/activities"
                 headers = {
                     'X-Api-Key': self.cryptorank_api_key
@@ -427,6 +438,10 @@ class TelegramWebhook:
         """Handle button callbacks."""
         try:
             query = update.callback_query
+            if not query:
+                logger.error("[TELEGRAM] No callback query in update")
+                return
+                
             await query.answer()
             
             if query.data == "price_menu":
@@ -450,6 +465,10 @@ class TelegramWebhook:
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle natural language messages."""
         try:
+            if not update.message or not update.message.text:
+                logger.error("[TELEGRAM] No message or text in update")
+                return
+                
             user_message = update.message.text.lower()
             
             # Crypto-related keywords
@@ -467,7 +486,7 @@ class TelegramWebhook:
                 # Use AI model for general responses
                 if self.model:
                     try:
-                        ai_response = await self.model.process_message(user_message)
+                        ai_response = self.model.query(user_message)
                         await update.message.reply_text(ai_response)
                     except Exception as e:
                         logger.error(f"[TELEGRAM] AI model error: {str(e)}")
@@ -502,7 +521,7 @@ class TelegramWebhook:
                         "Be concise and informative. If you need real data, mention that the user should use specific commands like /price, /trending, /funds, or /drophunting."
                     )
                     
-                    ai_response = await self.model.process_message(f"{crypto_prompt}\n\nUser: {user_message}")
+                    ai_response = self.model.query(f"{crypto_prompt}\n\nUser: {user_message}")
                     await update.message.reply_text(ai_response)
                 except Exception as e:
                     logger.error(f"[TELEGRAM] AI model error in crypto processing: {str(e)}")

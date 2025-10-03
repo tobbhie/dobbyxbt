@@ -72,29 +72,33 @@ def webhook():
         update_data = request.get_json()
         
         if update_data:
-            # Process the update asynchronously using a thread pool
-            import asyncio
-            import concurrent.futures
-            import threading
-            
-            def run_async_update():
-                """Run the async function in a new event loop"""
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    return loop.run_until_complete(bot.process_webhook_update(update_data))
-                finally:
-                    loop.close()
-            
-            # Run in a separate thread to avoid event loop conflicts
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(run_async_update)
-                result = future.result(timeout=30)  # 30 second timeout
-            
-            if result:
-                return jsonify({'status': 'ok'})
-            else:
-                return jsonify({'status': 'error', 'message': 'Failed to process update'}), 400
+            # Process the update using the bot's webhook method
+            try:
+                import asyncio
+                import concurrent.futures
+                
+                def run_webhook_update():
+                    """Run webhook update in isolated event loop"""
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        return loop.run_until_complete(bot.process_webhook_update(update_data))
+                    finally:
+                        loop.close()
+                
+                # Run in thread pool to avoid event loop conflicts
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(run_webhook_update)
+                    result = future.result(timeout=30)
+                
+                if result:
+                    return jsonify({'status': 'ok'})
+                else:
+                    return jsonify({'status': 'error', 'message': 'Failed to process update'}), 400
+                    
+            except Exception as e:
+                logger.error(f"Error processing webhook update: {str(e)}")
+                return jsonify({'status': 'error', 'message': f'Processing error: {str(e)}'}), 500
         else:
             return jsonify({'status': 'error', 'message': 'No update data'}), 400
             
