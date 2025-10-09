@@ -380,8 +380,8 @@ class TelegramWebhook:
             # Show instant feedback
             status_msg = await update.message.reply_text("⏳ Fetching trending data...")
             
-            # Create task to prevent blocking
-            asyncio.create_task(self._handle_trending_command_async(update, context, status_msg))
+            # Process directly without creating tasks
+            await self._handle_trending_command_async(update, context, status_msg)
                 
         except Exception as e:
             logger.error(f"[TELEGRAM] Error in trending command: {str(e)}")
@@ -418,8 +418,8 @@ class TelegramWebhook:
             # Show instant feedback
             status_msg = await update.message.reply_text("⏳ Fetching funds data...")
             
-            # Create task to prevent blocking
-            asyncio.create_task(self._handle_funds_command_async(update, context, status_msg))
+            # Process directly without creating tasks
+            await self._handle_funds_command_async(update, context, status_msg)
                 
         except Exception as e:
             logger.error(f"[TELEGRAM] Error in funds command: {str(e)}")
@@ -456,8 +456,8 @@ class TelegramWebhook:
             # Show instant feedback
             status_msg = await update.message.reply_text("⏳ Fetching drophunting data...")
             
-            # Create task to prevent blocking
-            asyncio.create_task(self._handle_drophunting_command_async(update, context, status_msg))
+            # Process directly without creating tasks
+            await self._handle_drophunting_command_async(update, context, status_msg)
                 
         except Exception as e:
             logger.error(f"[TELEGRAM] Error in drophunting command: {str(e)}")
@@ -519,18 +519,17 @@ class TelegramWebhook:
                     parse_mode='Markdown'
                 )
             elif query.data == "trending_menu":
-                # Create task to prevent blocking
-                task = asyncio.create_task(self._handle_trending_async(update, context, query))
-                # Don't await to prevent blocking, but ensure task is tracked
-                task.add_done_callback(lambda t: logger.info("[TELEGRAM] Trending task completed"))
+                # Show instant feedback and process directly
+                await query.edit_message_text("⏳ Fetching trending data...")
+                await self._handle_trending_async(update, context, query)
             elif query.data == "funds_menu":
-                # Create task to prevent blocking
-                task = asyncio.create_task(self._handle_funds_async(update, context, query))
-                task.add_done_callback(lambda t: logger.info("[TELEGRAM] Funds task completed"))
+                # Show instant feedback and process directly
+                await query.edit_message_text("⏳ Fetching funds data...")
+                await self._handle_funds_async(update, context, query)
             elif query.data == "drophunting_menu":
-                # Create task to prevent blocking
-                task = asyncio.create_task(self._handle_drophunting_async(update, context, query))
-                task.add_done_callback(lambda t: logger.info("[TELEGRAM] Drophunting task completed"))
+                # Show instant feedback and process directly
+                await query.edit_message_text("⏳ Fetching drophunting data...")
+                await self._handle_drophunting_async(update, context, query)
                 
         except Exception as e:
             logger.error(f"[TELEGRAM] Error in button callback: {str(e)}")
