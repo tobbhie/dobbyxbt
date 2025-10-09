@@ -92,8 +92,12 @@ def get_crypto_prices(symbol=None):
             params['symbol'] = symbol.upper()
         
         response = requests.get(url, headers=headers, params=params, timeout=10)
+        logger.info(f"API Request: {url} with params: {params}")
+        logger.info(f"API Response: {response.status_code}")
+        
         if response.status_code == 200:
             data = response.json()
+            logger.info(f"API Data received: {len(data.get('data', []))} currencies")
             if data and 'data' in data:
                 prices = []
                 for currency in data.get('data', []):
@@ -108,7 +112,10 @@ def get_crypto_prices(symbol=None):
                         })
                     except (ValueError, TypeError):
                         continue
+                logger.info(f"Processed {len(prices)} prices")
                 return prices
+        else:
+            logger.error(f"API Error: {response.status_code} - {response.text}")
         return []
     except Exception as e:
         logger.error(f"Error fetching crypto prices: {str(e)}")
@@ -129,8 +136,12 @@ def get_trending_crypto():
         }
         
         response = requests.get(url, headers=headers, params=params, timeout=10)
+        logger.info(f"Trending API Request: {url} with params: {params}")
+        logger.info(f"Trending API Response: {response.status_code}")
+        
         if response.status_code == 200:
             data = response.json()
+            logger.info(f"Trending API Data received: {len(data.get('data', []))} currencies")
             if data and 'data' in data:
                 trending = []
                 for currency in data.get('data', []):
@@ -241,6 +252,35 @@ def health_check():
             "Show me airdrop activities"
         ]
     })
+
+@app.route('/test_api', methods=['GET'])
+def test_api():
+    """Test CryptoRank API connection"""
+    try:
+        if not CRYPTO_API_KEY:
+            return jsonify({'error': 'No API key configured'}), 400
+        
+        # Test basic API call
+        test_prices = get_crypto_prices('BTC')
+        if test_prices:
+            return jsonify({
+                'status': 'success',
+                'message': 'API is working',
+                'sample_data': test_prices[0] if test_prices else None,
+                'total_currencies': len(test_prices)
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'API returned no data',
+                'api_key_configured': bool(CRYPTO_API_KEY)
+            }), 400
+            
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'API test failed: {str(e)}'
+        }), 500
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
