@@ -1,11 +1,21 @@
 import os
 import json
 import logging
+import asyncio
+import threading
 from flask import Flask, request, jsonify
 from src.agent.agent_tools.telegram.telegram_webhook import TelegramWebhook
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging for Render
+import sys
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.StreamHandler(sys.stderr)
+    ]
+)
 logger = logging.getLogger(__name__)
 
 # Initialize Flask app
@@ -18,10 +28,13 @@ def get_bot_instance():
     """Get or create bot instance"""
     global bot_instance
     if bot_instance is None:
+        logger.info("Creating new bot instance...")
         token = os.getenv("TELEGRAM_BOT_TOKEN")
         if not token:
+            logger.error("TELEGRAM_BOT_TOKEN environment variable is required")
             raise ValueError("TELEGRAM_BOT_TOKEN environment variable is required")
         
+        logger.info("Bot token found, initializing...")
         # Initialize AI model if available
         model = None
         try:
@@ -30,6 +43,8 @@ def get_bot_instance():
             if model_api_key:
                 model = Model(model_api_key)
                 logger.info("AI model initialized for webhook")
+            else:
+                logger.info("No MODEL_API_KEY found, bot will use basic responses")
         except Exception as e:
             logger.warning(f"Could not initialize AI model: {e}")
         
@@ -37,7 +52,7 @@ def get_bot_instance():
         bot_instance = TelegramWebhook(token=token, model=model)
         # Initialize application without running
         bot_instance._initialize_handlers_only()
-        logger.info("Bot instance created for webhook")
+        logger.info("Bot instance created and handlers initialized for webhook")
     
     return bot_instance
 
@@ -63,48 +78,59 @@ def health_check():
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    """Handle Telegram webhook updates"""
+    """Handle Telegram webhook updates - SIMPLIFIED VERSION"""
     try:
-        # Get bot instance
-        bot = get_bot_instance()
+        logger.info("=== WEBHOOK REQUEST RECEIVED ===")
         
         # Get update data
         update_data = request.get_json()
+        logger.info(f"Update data received: {update_data}")
         
-        if update_data:
-            # Process the update using asyncio.create_task approach
-            try:
-                import asyncio
-                import concurrent.futures
-                
-                def run_webhook_update():
-                    """Run webhook update in isolated event loop"""
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    try:
-                        return loop.run_until_complete(bot.process_webhook_update(update_data))
-                    finally:
-                        loop.close()
-                
-                # Run in thread pool to avoid blocking Flask
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(run_webhook_update)
-                    result = future.result(timeout=30)
-                
-                if result:
-                    return jsonify({'status': 'ok'})
-                else:
-                    return jsonify({'status': 'error', 'message': 'Failed to process update'}), 400
-                    
-            except Exception as e:
-                logger.error(f"Error processing webhook update: {str(e)}")
-                return jsonify({'status': 'error', 'message': f'Processing error: {str(e)}'}), 500
-        else:
+        if not update_data:
+            logger.warning("No update data received")
             return jsonify({'status': 'error', 'message': 'No update data'}), 400
-            
+        
+        # Get bot instance
+        bot = get_bot_instance()
+        logger.info("Bot instance retrieved")
+        
+        # Process webhook in a separate thread with its own event loop
+        def process_in_thread():
+            """Process webhook in isolated thread"""
+            try:
+                # Create new event loop for this thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+                # Run the webhook processing
+                result = loop.run_until_complete(bot.process_webhook_update(update_data))
+                logger.info(f"Webhook processing result: {result}")
+                return result
+                
+            except Exception as e:
+                logger.error(f"Error in webhook processing thread: {str(e)}")
+                return False
+            finally:
+                try:
+                    loop.close()
+                except:
+                    pass
+        
+        # Run in separate thread
+        thread = threading.Thread(target=process_in_thread)
+        thread.start()
+        thread.join(timeout=30)  # 30 second timeout
+        
+        if thread.is_alive():
+            logger.error("Webhook processing timed out")
+            return jsonify({'status': 'error', 'message': 'Processing timeout'}), 500
+        
+        logger.info("Webhook processing completed successfully")
+        return jsonify({'status': 'ok'})
+        
     except Exception as e:
-        logger.error(f"Error processing webhook: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error in webhook handler: {str(e)}")
+        return jsonify({'status': 'error', 'message': f'Webhook error: {str(e)}'}), 500
 
 @app.route('/set_webhook', methods=['GET'])
 def set_webhook():
@@ -122,10 +148,13 @@ def set_webhook():
             return jsonify({'error': 'RENDER_EXTERNAL_URL not set'}), 500
         
         webhook_url = f"{render_url}/webhook"
+        logger.info(f"Setting webhook to: {webhook_url}")
         
         # Set webhook via Telegram API
         telegram_api_url = f"https://api.telegram.org/bot{bot_token}/setWebhook"
         response = requests.post(telegram_api_url, json={'url': webhook_url})
+        
+        logger.info(f"Telegram API response: {response.status_code} - {response.text}")
         
         if response.status_code == 200 and response.json().get('ok'):
             return jsonify({
@@ -176,5 +205,7 @@ def webhook_info():
 
 if __name__ == '__main__':
     # For local development
+    logger.info("Starting Flask app for DobbyXBT Bot...")
+    logger.info("Bot is ready to receive webhook requests!")
     port = int(os.getenv('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)

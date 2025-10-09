@@ -8,9 +8,17 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes 
 from src.agent.agent_tools.telegram.telegram_config import TelegramConfig
 
+# Configure logging for Render
+import sys
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-logging.basicConfig(format="%(levelname)s: %(message)s")
+
+# Ensure logging is properly configured
+if not logger.handlers:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    logger.addHandler(handler)
+    logger.propagate = False
 
 class TelegramWebhook:
     def __init__(self, token, model=None):
@@ -738,23 +746,34 @@ class TelegramWebhook:
             logger.info("[TELEGRAM] Please check your bot token and internet connection.")
 
     async def process_webhook_update(self, update_data: dict):
-        """Process webhook update for Render deployment."""
+        """Process webhook update for Render deployment - SIMPLIFIED."""
         try:
+            logger.info("[TELEGRAM] Starting webhook update processing...")
+            
             # Ensure application is initialized
             if not self.application._initialized:
+                logger.info("[TELEGRAM] Initializing application...")
                 await self.application.initialize()
                 logger.info("[TELEGRAM] Application initialized for webhook processing")
             
             # Create Update object from webhook data
+            logger.info("[TELEGRAM] Creating Update object from webhook data...")
             update = Update.de_json(update_data, self.application.bot)
             
             if update:
+                logger.info(f"[TELEGRAM] Update object created successfully: {update.update_id}")
+                
                 # Process the update
+                logger.info("[TELEGRAM] Processing update...")
                 await self.application.process_update(update)
-                logger.info(f"[TELEGRAM] Processed webhook update: {update.update_id}")
+                logger.info(f"[TELEGRAM] Successfully processed webhook update: {update.update_id}")
                 return True
-            return False
+            else:
+                logger.warning("[TELEGRAM] No update object created from webhook data")
+                return False
             
         except Exception as e:
             logger.error(f"[TELEGRAM] Error processing webhook update: {str(e)}")
+            import traceback
+            logger.error(f"[TELEGRAM] Full traceback: {traceback.format_exc()}")
             return False
