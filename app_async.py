@@ -1,8 +1,10 @@
 import os
 import json
 import logging
-import requests
+import asyncio
+import aiohttp
 from flask import Flask, request, jsonify
+from concurrent.futures import ThreadPoolExecutor
 
 # Configure logging for Render - CLEAN VERSION
 import sys
@@ -23,9 +25,21 @@ BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CRYPTO_API_KEY = os.getenv("CRYPTORANK_API_KEY")
 CRYPTO_API_BASE_URL = "https://api.cryptorank.io/v2"
 
-def send_telegram_message(chat_id, text, reply_markup=None):
-    """Send message to Telegram using requests (synchronous)"""
+# Global session for async HTTP requests
+http_session = None
+
+async def get_http_session():
+    """Get or create aiohttp session"""
+    global http_session
+    if http_session is None or http_session.closed:
+        timeout = aiohttp.ClientTimeout(total=30)
+        http_session = aiohttp.ClientSession(timeout=timeout)
+    return http_session
+
+async def send_telegram_message_async(chat_id, text, reply_markup=None):
+    """Send message to Telegram using aiohttp (async)"""
     try:
+        session = await get_http_session()
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
         data = {
             'chat_id': chat_id,
@@ -35,16 +49,17 @@ def send_telegram_message(chat_id, text, reply_markup=None):
         if reply_markup:
             data['reply_markup'] = json.dumps(reply_markup)
         
-        response = requests.post(url, json=data, timeout=10)
-        logger.info(f"Telegram API response: {response.status_code}")
-        return response.json()
+        async with session.post(url, json=data) as response:
+            result = await response.json()
+            return result
     except Exception as e:
         logger.error(f"Error sending Telegram message: {str(e)}")
         return None
 
-def edit_telegram_message(chat_id, message_id, text, reply_markup=None):
-    """Edit Telegram message using requests (synchronous)"""
+async def edit_telegram_message_async(chat_id, message_id, text, reply_markup=None):
+    """Edit Telegram message using aiohttp (async)"""
     try:
+        session = await get_http_session()
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageText"
         data = {
             'chat_id': chat_id,
@@ -55,19 +70,20 @@ def edit_telegram_message(chat_id, message_id, text, reply_markup=None):
         if reply_markup:
             data['reply_markup'] = json.dumps(reply_markup)
         
-        response = requests.post(url, json=data, timeout=10)
-        logger.info(f"Telegram edit response: {response.status_code}")
-        return response.json()
+        async with session.post(url, json=data) as response:
+            result = await response.json()
+            return result
     except Exception as e:
         logger.error(f"Error editing Telegram message: {str(e)}")
         return None
 
-def get_crypto_prices(symbol=None):
-    """Get crypto prices from CryptoRank API (synchronous)"""
+async def get_crypto_prices_async(symbol=None):
+    """Get crypto prices from CryptoRank API (async)"""
     try:
         if not CRYPTO_API_KEY:
             return []
         
+        session = await get_http_session()
         url = f"{CRYPTO_API_BASE_URL}/currencies"
         headers = {'X-Api-Key': CRYPTO_API_KEY}
         params = {
@@ -78,35 +94,36 @@ def get_crypto_prices(symbol=None):
         if symbol:
             params['symbol'] = symbol.upper()
         
-        response = requests.get(url, headers=headers, params=params, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if data and 'data' in data:
-                prices = []
-                for currency in data.get('data', []):
-                    try:
-                        prices.append({
-                            'symbol': currency.get('symbol', 'Unknown'),
-                            'name': currency.get('name', 'Unknown'),
-                            'price': float(currency.get('price', 0)) if currency.get('price') else 0,
-                            'change_24h': float(currency.get('change24h', 0)) if currency.get('change24h') else 0,
-                            'market_cap': float(currency.get('marketCap', 0)) if currency.get('marketCap') else 0,
-                            'rank': currency.get('rank', 0)
-                        })
-                    except (ValueError, TypeError):
-                        continue
-                return prices
-        return []
+        async with session.get(url, headers=headers, params=params) as response:
+            if response.status == 200:
+                data = await response.json()
+                if data and 'data' in data:
+                    prices = []
+                    for currency in data.get('data', []):
+                        try:
+                            prices.append({
+                                'symbol': currency.get('symbol', 'Unknown'),
+                                'name': currency.get('name', 'Unknown'),
+                                'price': float(currency.get('price', 0)) if currency.get('price') else 0,
+                                'change_24h': float(currency.get('change24h', 0)) if currency.get('change24h') else 0,
+                                'market_cap': float(currency.get('marketCap', 0)) if currency.get('marketCap') else 0,
+                                'rank': currency.get('rank', 0)
+                            })
+                        except (ValueError, TypeError):
+                            continue
+                    return prices
+            return []
     except Exception as e:
         logger.error(f"Error fetching crypto prices: {str(e)}")
         return []
 
-def get_trending_crypto():
-    """Get trending crypto from CryptoRank API (synchronous)"""
+async def get_trending_crypto_async():
+    """Get trending crypto from CryptoRank API (async)"""
     try:
         if not CRYPTO_API_KEY:
             return []
         
+        session = await get_http_session()
         url = f"{CRYPTO_API_BASE_URL}/currencies"
         headers = {'X-Api-Key': CRYPTO_API_KEY}
         params = {
@@ -115,99 +132,115 @@ def get_trending_crypto():
             'sortDirection': 'DESC'
         }
         
-        response = requests.get(url, headers=headers, params=params, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if data and 'data' in data:
-                trending = []
-                for currency in data.get('data', []):
-                    try:
-                        trending.append({
-                            'symbol': currency.get('symbol', 'Unknown'),
-                            'name': currency.get('name', 'Unknown'),
-                            'price': float(currency.get('price', 0)) if currency.get('price') else 0,
-                            'change_24h': float(currency.get('change24h', 0)) if currency.get('change24h') else 0,
-                            'market_cap': float(currency.get('marketCap', 0)) if currency.get('marketCap') else 0,
-                            'rank': currency.get('rank', 0)
-                        })
-                    except (ValueError, TypeError):
-                        continue
-                return trending
-        return []
+        async with session.get(url, headers=headers, params=params) as response:
+            if response.status == 200:
+                data = await response.json()
+                if data and 'data' in data:
+                    trending = []
+                    for currency in data.get('data', []):
+                        try:
+                            trending.append({
+                                'symbol': currency.get('symbol', 'Unknown'),
+                                'name': currency.get('name', 'Unknown'),
+                                'price': float(currency.get('price', 0)) if currency.get('price') else 0,
+                                'change_24h': float(currency.get('change24h', 0)) if currency.get('change24h') else 0,
+                                'market_cap': float(currency.get('marketCap', 0)) if currency.get('marketCap') else 0,
+                                'rank': currency.get('rank', 0)
+                            })
+                        except (ValueError, TypeError):
+                            continue
+                    return trending
+            return []
     except Exception as e:
         logger.error(f"Error fetching trending crypto: {str(e)}")
         return []
 
-def get_funds_data():
-    """Get funds data from CryptoRank API (synchronous)"""
+async def get_funds_data_async():
+    """Get funds data from CryptoRank API (async)"""
     try:
         if not CRYPTO_API_KEY:
             return []
         
+        session = await get_http_session()
         url = f"{CRYPTO_API_BASE_URL}/funds/map"
         headers = {'X-Api-Key': CRYPTO_API_KEY}
         params = {'limit': 20}
         
-        response = requests.get(url, headers=headers, params=params, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if data and 'data' in data:
-                funds = []
-                for fund in data.get('data', []):
-                    try:
-                        funds.append({
-                            'name': fund.get('name', 'Unknown'),
-                            'type': fund.get('type', 'Unknown'),
-                            'tier': fund.get('tier', 'Unknown')
-                        })
-                    except (ValueError, TypeError):
-                        continue
-                return funds
-        return []
+        async with session.get(url, headers=headers, params=params) as response:
+            if response.status == 200:
+                data = await response.json()
+                if data and 'data' in data:
+                    funds = []
+                    for fund in data.get('data', []):
+                        try:
+                            funds.append({
+                                'name': fund.get('name', 'Unknown'),
+                                'type': fund.get('type', 'Unknown'),
+                                'tier': fund.get('tier', 'Unknown')
+                            })
+                        except (ValueError, TypeError):
+                            continue
+                    return funds
+            return []
     except Exception as e:
         logger.error(f"Error fetching funds data: {str(e)}")
         return []
 
-def get_drophunting_data():
-    """Get drophunting data from CryptoRank API (synchronous)"""
+async def get_drophunting_data_async():
+    """Get drophunting data from CryptoRank API (async)"""
     try:
         if not CRYPTO_API_KEY:
             return []
         
+        session = await get_http_session()
         url = f"{CRYPTO_API_BASE_URL}/drophunting/activities"
         headers = {'X-Api-Key': CRYPTO_API_KEY}
         params = {'limit': 20}
         
-        response = requests.get(url, headers=headers, params=params, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if data and 'data' in data:
-                activities = []
-                for activity in data.get('data', []):
-                    try:
-                        activities.append({
-                            'name': activity.get('name', 'Unknown'),
-                            'reward_type': activity.get('reward_type', 'Unknown'),
-                            'status': activity.get('status', 'Unknown'),
-                            'x_score': activity.get('x_score', 'N/A'),
-                            'total_raised': activity.get('total_raised', 0)
-                        })
-                    except (ValueError, TypeError):
-                        continue
-                return activities
-        elif response.status_code == 403:
-            # Return cheeky error message for paid API
-            return [{
-                'name': 'Drophunting Activities',
-                'reward_type': 'Premium Data',
-                'status': 'Paid API Required',
-                'x_score': 'N/A',
-                'error_message': '💰 The developer is too broke to afford the paid version of CryptoRank drophunting API endpoint! 😅'
-            }]
-        return []
+        async with session.get(url, headers=headers, params=params) as response:
+            if response.status == 200:
+                data = await response.json()
+                if data and 'data' in data:
+                    activities = []
+                    for activity in data.get('data', []):
+                        try:
+                            activities.append({
+                                'name': activity.get('name', 'Unknown'),
+                                'reward_type': activity.get('reward_type', 'Unknown'),
+                                'status': activity.get('status', 'Unknown'),
+                                'x_score': activity.get('x_score', 'N/A'),
+                                'total_raised': activity.get('total_raised', 0)
+                            })
+                        except (ValueError, TypeError):
+                            continue
+                    return activities
+            elif response.status == 403:
+                # Return cheeky error message for paid API
+                return [{
+                    'name': 'Drophunting Activities',
+                    'reward_type': 'Premium Data',
+                    'status': 'Paid API Required',
+                    'x_score': 'N/A',
+                    'error_message': '💰 The developer is too broke to afford the paid version of CryptoRank drophunting API endpoint! 😅'
+                }]
+            return []
     except Exception as e:
         logger.error(f"Error fetching drophunting data: {str(e)}")
         return []
+
+def run_async_in_thread(coro):
+    """Run async function in a separate thread with its own event loop"""
+    def run_in_thread():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+    
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(run_in_thread)
+        return future.result(timeout=30)
 
 @app.route('/', methods=['GET'])
 def health_check():
@@ -231,7 +264,7 @@ def health_check():
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    """Handle Telegram webhook updates - COMPLETELY SYNCHRONOUS"""
+    """Handle Telegram webhook updates - PROPER ASYNC APPROACH"""
     try:
         logger.info("Webhook request received")
         
@@ -241,8 +274,8 @@ def webhook():
         if not update_data:
             return jsonify({'status': 'error', 'message': 'No update data'}), 400
         
-        # Process the update synchronously
-        result = process_telegram_update(update_data)
+        # Process the update asynchronously in a separate thread
+        result = run_async_in_thread(process_telegram_update_async(update_data))
         
         if result:
             return jsonify({'status': 'ok'})
@@ -253,14 +286,14 @@ def webhook():
         logger.error(f"Webhook error: {str(e)}")
         return jsonify({'status': 'error', 'message': f'Webhook error: {str(e)}'}), 500
 
-def process_telegram_update(update_data):
-    """Process Telegram update synchronously"""
+async def process_telegram_update_async(update_data):
+    """Process Telegram update asynchronously"""
     try:
         # Handle different types of updates
         if 'message' in update_data:
-            return handle_message(update_data)
+            return await handle_message_async(update_data)
         elif 'callback_query' in update_data:
-            return handle_callback_query(update_data)
+            return await handle_callback_query_async(update_data)
         else:
             logger.warning(f"Unknown update type: {update_data}")
             return False
@@ -269,14 +302,14 @@ def process_telegram_update(update_data):
         logger.error(f"Error processing Telegram update: {str(e)}")
         return False
 
-def handle_message(update_data):
-    """Handle text messages"""
+async def handle_message_async(update_data):
+    """Handle text messages asynchronously"""
     try:
         message = update_data['message']
         chat_id = message['chat']['id']
         text = message.get('text', '')
         
-        logger.info(f"Processing message: {text}")
+        # Process message
         
         if text.startswith('/start'):
             # Send welcome message with buttons
@@ -302,7 +335,7 @@ def handle_message(update_data):
                 ]
             }
             
-            send_telegram_message(chat_id, welcome_text, keyboard)
+            await send_telegram_message_async(chat_id, welcome_text, keyboard)
             return True
             
         elif text.startswith('/help'):
@@ -315,7 +348,7 @@ def handle_message(update_data):
                 "💬 **Natural Language:**\n"
                 "Ask me anything about crypto!"
             )
-            send_telegram_message(chat_id, help_text)
+            await send_telegram_message_async(chat_id, help_text)
             return True
             
         elif text.startswith('/price'):
@@ -325,9 +358,9 @@ def handle_message(update_data):
             
             if symbol:
                 # Show loading message first
-                loading_response = send_telegram_message(chat_id, f"⏳ Fetching price data for {symbol.upper()}...")
+                loading_msg = await send_telegram_message_async(chat_id, f"⏳ Fetching price data for {symbol.upper()}...")
                 
-                prices = get_crypto_prices(symbol)
+                prices = await get_crypto_prices_async(symbol)
                 if prices:
                     price = prices[0]
                     response = (
@@ -340,17 +373,21 @@ def handle_message(update_data):
                 else:
                     response = f"❌ Could not find data for {symbol.upper()}. Please check the symbol and try again.\n\nTry: BTC, ETH, ADA, SOL, etc."
                 
-                # Send the result
-                send_telegram_message(chat_id, response)
+                # Edit the loading message with the result
+                if loading_msg and 'result' in loading_msg:
+                    message_id = loading_msg['result']['message_id']
+                    await edit_telegram_message_async(chat_id, message_id, response)
+                else:
+                    await send_telegram_message_async(chat_id, response)
             else:
                 response = "❌ Please provide a cryptocurrency symbol. Example: /price BTC"
-                send_telegram_message(chat_id, response)
+                await send_telegram_message_async(chat_id, response)
             
             return True
             
         elif text.startswith('/trending'):
             # Handle trending command
-            trending_data = get_trending_crypto()
+            trending_data = await get_trending_crypto_async()
             if trending_data:
                 response = "🔥 **Top Trending Cryptocurrencies:**\n\n"
                 for i, crypto in enumerate(trending_data[:10], 1):
@@ -360,12 +397,12 @@ def handle_message(update_data):
             else:
                 response = "❌ Could not fetch trending data. Please set your CryptoRank API key."
             
-            send_telegram_message(chat_id, response)
+            await send_telegram_message_async(chat_id, response)
             return True
             
         elif text.startswith('/funds'):
             # Handle funds command
-            funds_data = get_funds_data()
+            funds_data = await get_funds_data_async()
             if funds_data:
                 response = "🏦 **Top Crypto Investment Funds:**\n\n"
                 for i, fund in enumerate(funds_data[:10], 1):
@@ -375,12 +412,12 @@ def handle_message(update_data):
             else:
                 response = "❌ Could not fetch funds data. Please set your CryptoRank API key."
             
-            send_telegram_message(chat_id, response)
+            await send_telegram_message_async(chat_id, response)
             return True
             
         elif text.startswith('/drophunting'):
             # Handle drophunting command
-            drophunting_data = get_drophunting_data()
+            drophunting_data = await get_drophunting_data_async()
             if drophunting_data:
                 if drophunting_data[0].get('error_message'):
                     response = (
@@ -404,7 +441,7 @@ def handle_message(update_data):
             else:
                 response = "❌ Could not fetch drophunting data. Please set your CryptoRank API key."
             
-            send_telegram_message(chat_id, response)
+            await send_telegram_message_async(chat_id, response)
             return True
             
         else:
@@ -418,26 +455,28 @@ def handle_message(update_data):
                 "🎯 `/drophunting` - Airdrop opportunities\n\n"
                 "Or use the buttons below! 👇"
             )
-            send_telegram_message(chat_id, response)
+            await send_telegram_message_async(chat_id, response)
             return True
             
     except Exception as e:
         logger.error(f"Error handling message: {str(e)}")
         return False
 
-def handle_callback_query(update_data):
-    """Handle button callbacks"""
+async def handle_callback_query_async(update_data):
+    """Handle button callbacks asynchronously"""
     try:
         callback_query = update_data['callback_query']
         chat_id = callback_query['message']['chat']['id']
         message_id = callback_query['message']['message_id']
         data = callback_query['data']
         
-        logger.info(f"Processing callback: {data}")
+        # Process callback
         
         # Answer the callback query
+        session = await get_http_session()
         answer_url = f"https://api.telegram.org/bot{BOT_TOKEN}/answerCallbackQuery"
-        requests.post(answer_url, json={'callback_query_id': callback_query['id']}, timeout=5)
+        async with session.post(answer_url, json={'callback_query_id': callback_query['id']}) as response:
+            await response.json()
         
         if data == "price_menu":
             response = (
@@ -446,15 +485,15 @@ def handle_callback_query(update_data):
                 "Example: /price BTC\n\n"
                 "Supported symbols: BTC, ETH, ADA, SOL, etc."
             )
-            edit_telegram_message(chat_id, message_id, response)
+            await edit_telegram_message_async(chat_id, message_id, response)
             return True
             
         elif data == "trending_menu":
             # Show loading message first
-            edit_telegram_message(chat_id, message_id, "⏳ Fetching trending data...")
+            await edit_telegram_message_async(chat_id, message_id, "⏳ Fetching trending data...")
             
             # Get trending data
-            trending_data = get_trending_crypto()
+            trending_data = await get_trending_crypto_async()
             if trending_data:
                 response = "🔥 **Top Trending Cryptocurrencies:**\n\n"
                 for i, crypto in enumerate(trending_data[:10], 1):
@@ -464,15 +503,15 @@ def handle_callback_query(update_data):
             else:
                 response = "❌ Could not fetch trending data. Please set your CryptoRank API key."
             
-            edit_telegram_message(chat_id, message_id, response)
+            await edit_telegram_message_async(chat_id, message_id, response)
             return True
             
         elif data == "funds_menu":
             # Show loading message first
-            edit_telegram_message(chat_id, message_id, "⏳ Fetching funds data...")
+            await edit_telegram_message_async(chat_id, message_id, "⏳ Fetching funds data...")
             
             # Get funds data
-            funds_data = get_funds_data()
+            funds_data = await get_funds_data_async()
             if funds_data:
                 response = "🏦 **Top Crypto Investment Funds:**\n\n"
                 for i, fund in enumerate(funds_data[:10], 1):
@@ -482,15 +521,15 @@ def handle_callback_query(update_data):
             else:
                 response = "❌ Could not fetch funds data. Please set your CryptoRank API key."
             
-            edit_telegram_message(chat_id, message_id, response)
+            await edit_telegram_message_async(chat_id, message_id, response)
             return True
             
         elif data == "drophunting_menu":
             # Show loading message first
-            edit_telegram_message(chat_id, message_id, "⏳ Fetching drophunting data...")
+            await edit_telegram_message_async(chat_id, message_id, "⏳ Fetching drophunting data...")
             
             # Get drophunting data
-            drophunting_data = get_drophunting_data()
+            drophunting_data = await get_drophunting_data_async()
             if drophunting_data:
                 if drophunting_data[0].get('error_message'):
                     response = (
@@ -514,7 +553,7 @@ def handle_callback_query(update_data):
             else:
                 response = "❌ Could not fetch drophunting data. Please set your CryptoRank API key."
             
-            edit_telegram_message(chat_id, message_id, response)
+            await edit_telegram_message_async(chat_id, message_id, response)
             return True
             
         return True
@@ -527,6 +566,8 @@ def handle_callback_query(update_data):
 def set_webhook():
     """Set Telegram webhook URL"""
     try:
+        import requests
+        
         if not BOT_TOKEN:
             return jsonify({'error': 'TELEGRAM_BOT_TOKEN not set'}), 500
         
@@ -536,13 +577,13 @@ def set_webhook():
             return jsonify({'error': 'RENDER_EXTERNAL_URL not set'}), 500
         
         webhook_url = f"{render_url}/webhook"
-        logger.info(f"Setting webhook to: {webhook_url}")
+        # Setting webhook
         
         # Set webhook via Telegram API
         telegram_api_url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook"
         response = requests.post(telegram_api_url, json={'url': webhook_url})
         
-        logger.info(f"Telegram API response: {response.status_code} - {response.text}")
+        # Set webhook response
         
         if response.status_code == 200 and response.json().get('ok'):
             return jsonify({
@@ -565,6 +606,8 @@ def set_webhook():
 def webhook_info():
     """Get current webhook information"""
     try:
+        import requests
+        
         if not BOT_TOKEN:
             return jsonify({'error': 'TELEGRAM_BOT_TOKEN not set'}), 500
         
