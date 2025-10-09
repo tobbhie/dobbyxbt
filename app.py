@@ -84,7 +84,7 @@ def get_crypto_prices(symbol=None):
         url = f"{CRYPTO_API_BASE_URL}/currencies"
         headers = {'X-Api-Key': CRYPTO_API_KEY}
         params = {
-            'limit': 20,
+            'limit': 100,
             'sortBy': 'marketCap',
             'sortDirection': 'DESC'
         }
@@ -113,7 +113,8 @@ def get_crypto_prices(symbol=None):
                     except (ValueError, TypeError):
                         continue
                 logger.info(f"Processed {len(prices)} prices")
-                return prices
+                # Return only first 20 results
+                return prices[:20]
         else:
             logger.error(f"API Error: {response.status_code} - {response.text}")
         return []
@@ -130,7 +131,7 @@ def get_trending_crypto():
         url = f"{CRYPTO_API_BASE_URL}/currencies"
         headers = {'X-Api-Key': CRYPTO_API_KEY}
         params = {
-            'limit': 20,
+            'limit': 100,
             'sortBy': 'marketCap',
             'sortDirection': 'DESC'
         }
@@ -156,7 +157,8 @@ def get_trending_crypto():
                         })
                     except (ValueError, TypeError):
                         continue
-                return trending
+                # Return only first 20 results
+                return trending[:20]
         return []
     except Exception as e:
         logger.error(f"Error fetching trending crypto: {str(e)}")
