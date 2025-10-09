@@ -23,6 +23,19 @@ BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CRYPTO_API_KEY = os.getenv("CRYPTORANK_API_KEY")
 CRYPTO_API_BASE_URL = "https://api.cryptorank.io/v2"
 
+# AI Model (optional)
+AI_MODEL = None
+try:
+    from src.agent.agent_tools.model.model import Model
+    model_api_key = os.getenv("MODEL_API_KEY")
+    if model_api_key:
+        AI_MODEL = Model(model_api_key)
+        logger.info("AI model initialized")
+    else:
+        logger.info("No MODEL_API_KEY found, bot will use basic responses")
+except Exception as e:
+    logger.warning(f"Could not initialize AI model: {e}")
+
 def send_telegram_message(chat_id, text, reply_markup=None):
     """Send message to Telegram using requests (synchronous)"""
     try:
@@ -408,17 +421,44 @@ def handle_message(update_data):
             return True
             
         else:
-            # Handle natural language
-            response = (
-                "💬 I understand you're asking about crypto!\n\n"
-                "Try these commands:\n"
-                "💰 `/price BTC` - Get Bitcoin price\n"
-                "📈 `/trending` - Top trending cryptos\n"
-                "🏦 `/funds` - Top crypto funds\n"
-                "🎯 `/drophunting` - Airdrop opportunities\n\n"
-                "Or use the buttons below! 👇"
-            )
-            send_telegram_message(chat_id, response)
+            # Handle natural language with AI
+            if AI_MODEL:
+                try:
+                    # Use AI model for intelligent responses
+                    crypto_prompt = (
+                        "You are DobbyXBT, a specialized cryptocurrency assistant. "
+                        "Analyze the user's crypto request and provide helpful, accurate information. "
+                        "Focus on: prices, market trends, investment opportunities, airdrops, and crypto funds. "
+                        "Be concise and informative. If you need real data, mention that the user should use specific commands like /price, /trending, /funds, or /drophunting."
+                    )
+                    
+                    ai_response = AI_MODEL.query(f"{crypto_prompt}\n\nUser: {text}")
+                    send_telegram_message(chat_id, ai_response)
+                except Exception as e:
+                    logger.error(f"AI model error: {str(e)}")
+                    # Fallback to basic response
+                    response = (
+                        "💬 I understand you're asking about crypto!\n\n"
+                        "Try these commands:\n"
+                        "💰 `/price BTC` - Get Bitcoin price\n"
+                        "📈 `/trending` - Top trending cryptos\n"
+                        "🏦 `/funds` - Top crypto funds\n"
+                        "🎯 `/drophunting` - Airdrop opportunities\n\n"
+                        "Or use the buttons below! 👇"
+                    )
+                    send_telegram_message(chat_id, response)
+            else:
+                # Basic response without AI
+                response = (
+                    "💬 I understand you're asking about crypto!\n\n"
+                    "Try these commands:\n"
+                    "💰 `/price BTC` - Get Bitcoin price\n"
+                    "📈 `/trending` - Top trending cryptos\n"
+                    "🏦 `/funds` - Top crypto funds\n"
+                    "🎯 `/drophunting` - Airdrop opportunities\n\n"
+                    "Or use the buttons below! 👇"
+                )
+                send_telegram_message(chat_id, response)
             return True
             
     except Exception as e:
