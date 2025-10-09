@@ -528,12 +528,12 @@ def handle_callback_query(update_data):
                 "Example: /price BTC\n\n"
                 "Supported symbols: BTC, ETH, ADA, SOL, etc."
             )
-            edit_telegram_message(chat_id, message_id, response)
+            send_telegram_message(chat_id, response)
             return True
             
         elif data == "trending_menu":
-            # Show loading message first
-            edit_telegram_message(chat_id, message_id, "⏳ Fetching trending data...")
+            # Send loading message as new message
+            loading_msg = send_telegram_message(chat_id, "⏳ Fetching trending data...")
             
             # Get trending data
             trending_data = get_trending_crypto()
@@ -546,12 +546,13 @@ def handle_callback_query(update_data):
             else:
                 response = "❌ Could not fetch trending data. Please set your CryptoRank API key."
             
-            edit_telegram_message(chat_id, message_id, response)
+            # Send result as new message
+            send_telegram_message(chat_id, response)
             return True
             
         elif data == "funds_menu":
-            # Show loading message first
-            edit_telegram_message(chat_id, message_id, "⏳ Fetching funds data...")
+            # Send loading message as new message
+            loading_msg = send_telegram_message(chat_id, "⏳ Fetching funds data...")
             
             # Get funds data
             funds_data = get_funds_data()
@@ -564,12 +565,13 @@ def handle_callback_query(update_data):
             else:
                 response = "❌ Could not fetch funds data. Please set your CryptoRank API key."
             
-            edit_telegram_message(chat_id, message_id, response)
+            # Send result as new message
+            send_telegram_message(chat_id, response)
             return True
             
         elif data == "drophunting_menu":
-            # Show loading message first
-            edit_telegram_message(chat_id, message_id, "⏳ Fetching drophunting data...")
+            # Send loading message as new message
+            loading_msg = send_telegram_message(chat_id, "⏳ Fetching drophunting data...")
             
             # Get drophunting data
             drophunting_data = get_drophunting_data()
@@ -596,7 +598,8 @@ def handle_callback_query(update_data):
             else:
                 response = "❌ Could not fetch drophunting data. Please set your CryptoRank API key."
             
-            edit_telegram_message(chat_id, message_id, response)
+            # Send result as new message
+            send_telegram_message(chat_id, response)
             return True
             
         return True
